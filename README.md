@@ -1,6 +1,6 @@
 # objectDetection
 
-Steps to set up python environment:
+Steps to set up Python environment:
 1) git clone https://github.com/opencv-object-detection/objectDetection.git
 2) cd objectDetection
 3) pip install -r requirements.txt
