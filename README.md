@@ -8,7 +8,7 @@ Steps to set up Python environment:
 How to run the script:
 Run "object-detection.py" from any Python IDE or command line
 
-**Make sure you in objectDetection directory**
+**Make sure you are in objectDetection directory**
 
 
 
