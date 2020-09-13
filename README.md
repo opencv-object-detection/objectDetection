@@ -7,7 +7,7 @@
 1) Open Anaconda terminal
 2) Go to directory where you have cloned https://github.com/opencv-object-detection/objectDetection.git
 3) cd objectDetection
-4) pip install -r requirements.txt
+4) Type: pip install -r requirements.txt
 5) Run "object-detection.py" from anaconda prompt or any IDE for python
 
 **Make sure you are in objectDetection directory**
