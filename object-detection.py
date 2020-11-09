@@ -41,7 +41,6 @@ class ObjectDetection():
         while True:
             _, frame = cam.read()
             f_count += 1
-
             blob_from_image = cv2.dnn.blobFromImage(frame, 0.00392, (320, 320), (0, 0, 0), True, crop=False)
 
             self._model.setInput(blob_from_image)
@@ -49,6 +48,7 @@ class ObjectDetection():
 
             name_ids, probabilities, boundings = [], [], []
             height, width, channels = frame.shape
+
             for output in outputs:
                 for detect in output:
                     scores = detect[5:]
@@ -64,17 +64,14 @@ class ObjectDetection():
                             float(probability))
                         name_ids.append(class_id)
 
-            indexes = cv2.dnn.NMSBoxes(boundings, probabilities, 0.4, 0.6)
-
             for i in range(len(boundings)):
-                if i in indexes:
+                if i in cv2.dnn.NMSBoxes(boundings, probabilities, 0.4, 0.6):
                     x, y, w, h = boundings[i]
                     label = str(self._names[name_ids[i]])
                     probability = probabilities[i]
                     color = self._colors[name_ids[i]]
                     cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-                    cv2.putText(frame, label + " " + str(round(probability, 2)), (x, y + 30), self._get_font, 1, (255, 255, 255),
-                                2)
+                    cv2.putText(frame, label + " " + str(round(probability, 2)), (x, y + 30), self._get_font, 1, (255, 255, 255), 2)
 
             end_time = time.time() - start
             fps = f_count / end_time
