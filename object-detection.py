@@ -10,8 +10,7 @@ class ObjectDetection():
     _MAPPER = {'weights_url' : 'https://pjreddie.com/media/files/yolov3-tiny.weights',
                'weights_dir': './models/yolov3-tiny.weights',
                'model_cfg' : './models/model-config.cfg',
-               'names' : './models/names.txt'
-               }
+               'names' : './models/names.txt'}
     
     def __init__(self):
         self._download_model()
