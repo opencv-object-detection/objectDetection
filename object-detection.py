@@ -14,6 +14,7 @@ class ObjectDetection():
                }
     
     def __init__(self):
+        self._download_model()
         self._model = cv2.dnn.readNet(self._MAPPER['weights_dir'], self._MAPPER['model_cfg'])
         with open(self._MAPPER['names'], "r") as infile:
             self._names = [row.strip() for row in infile.readlines()]
@@ -90,7 +91,6 @@ class ObjectDetection():
         cv2.destroyAllWindows()
 
     def run(self):
-        self._download_model()
         self._detect()
 
 obj = ObjectDetection()
