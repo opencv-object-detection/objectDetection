@@ -3,87 +3,95 @@ import os
 import cv2
 import time
 import numpy as np
+from urllib.request import urlretrieve
 
-if not os.path.isfile('./models/yolov3-tiny.weights'):
-    from urllib.request import urlretrieve
-    url = 'https://pjreddie.com/media/files/yolov3-tiny.weights'
-    dst = './models/yolov3-tiny.weights'
-    print('Downloading model.....')
-    urlretrieve(url, dst)
-    print('Model download complete......')
+class ObjectDetection():
+    
+    _MAPPER = {'weights_url' : 'https://pjreddie.com/media/files/yolov3-tiny.weights',
+               'weights_dir': './models/yolov3-tiny.weights',
+               'model_cfg' : './models/model-config.cfg',
+               'names' : './models/names.txt'
+               }
+    
+    def __init__(self):
+        self._model = cv2.dnn.readNet(self._MAPPER['weights_dir'], self._MAPPER['model_cfg'])
+        with open(self._MAPPER['names'], "r") as infile:
+            self._names = [row.strip() for row in infile.readlines()]
+        self._layers = [self._model.getLayerNames()[i[0] - 1] for i in self._model.getUnconnectedOutLayers()]
+        self._colors = np.random.uniform(0, 255, size=(len(self._names), 3))
 
-net = cv2.dnn.readNet("./models/yolov3-tiny.weights",
-                      "./models/yolov3-tiny.cfg")
+    def _download_model(self):
+        if not os.path.isfile(self._MAPPER['weights_dir']):
+            print('Downloading model.....')
+            urlretrieve(self._MAPPER['weights_url'], self._MAPPER['weights_dir'])
+            print('Model download complete......')
+            
+    @property
+    def _start_camera(self):
+        return cv2.VideoCapture(0)
+    
+    @property
+    def _get_font(self):
+        return cv2.FONT_HERSHEY_PLAIN
+    
+    def _detect(self):
+        start = time.time()
+        f_count = 0
+        cam = self._start_camera
+        while True:
+            _, frame = cam.read()
+            f_count += 1
 
-with open("./models/labels.txt","r") as f:
-    classes = [line.strip() for line in f.readlines()]
+            blob_from_image = cv2.dnn.blobFromImage(frame, 0.00392, (320, 320), (0, 0, 0), True, crop=False)
 
-layer_names = net.getLayerNames()
-outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+            self._model.setInput(blob_from_image)
+            outputs = self._model.forward(self._layers)
 
-colors= np.random.uniform(0,255,size=(len(classes),3))
+            name_ids, probabilities, boundings = [], [], []
+            height, width, channels = frame.shape
+            for output in outputs:
+                for detect in output:
+                    scores = detect[5:]
+                    class_id = np.argmax(scores)
+                    probability = scores[class_id]
+                    if probability > 0.3:
+                        x = int(int(detect[0] * width) - int(detect[2] * width) / 2)
+                        y = int(int(detect[1] * height) - int(detect[3] * height) / 2)
+                        w, h = int(detect[2] * width), int(detect[3] * height)
 
-cap = cv2.VideoCapture(0)  # 0 for 1st webcam
-font = cv2.FONT_HERSHEY_PLAIN
-starting_time = time.time()
-frame_id = 0
+                        boundings.append([x, y, w, h])
+                        probabilities.append(
+                            float(probability))
+                        name_ids.append(class_id)
 
-while True:
-    _, frame = cap.read()  #
-    frame_id += 1
+            indexes = cv2.dnn.NMSBoxes(boundings, probabilities, 0.4, 0.6)
 
-    height, width, channels = frame.shape
-    # detecting objects
-    blob = cv2.dnn.blobFromImage(frame, 0.00392, (320, 320), (0, 0, 0), True, crop=False)  # reduce 416 to 320
+            for i in range(len(boundings)):
+                if i in indexes:
+                    x, y, w, h = boundings[i]
+                    label = str(self._names[name_ids[i]])
+                    probability = probabilities[i]
+                    color = self._colors[name_ids[i]]
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+                    cv2.putText(frame, label + " " + str(round(probability, 2)), (x, y + 30), self._get_font, 1, (255, 255, 255),
+                                2)
 
-    net.setInput(blob)
-    outs = net.forward(outputlayers)
-    # print(outs[1])
+            end_time = time.time() - start
+            fps = f_count / end_time
+            cv2.putText(frame, "FPS:" + str(round(fps, 2)), (10, 50), self._get_font, 2, (0, 0, 0), 1)
 
+            cv2.imshow("Image", frame)
+            key = cv2.waitKey(1)
 
-    # Showing info on screen/ get confidence score of algorithm in detecting an object in blob
-    class_ids = []
-    confidences = []
-    boxes = []
-    for out in outs:
-        for detection in out:
-            scores = detection[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > 0.3:
-                center_x = int(detection[0] * width)
-                center_y = int(detection[1] * height)
-                w = int(detection[2] * width)
-                h = int(detection[3] * height)
+            if key == 27:  # esc key stops the process
+                break;
 
-                x = int(center_x - w / 2)
-                y = int(center_y - h / 2)
+        cam.release()
+        cv2.destroyAllWindows()
 
-                boxes.append([x, y, w, h])  # put all rectangle areas
-                confidences.append(
-                    float(confidence))  # how confidence was that object detected and show that percentage
-                class_ids.append(class_id)  # name of the object tha was detected
+    def run(self):
+        self._download_model()
+        self._detect()
 
-    indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
-
-    for i in range(len(boxes)):
-        if i in indexes:
-            x, y, w, h = boxes[i]
-            label = str(classes[class_ids[i]])
-            confidence = confidences[i]
-            color = colors[class_ids[i]]
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(frame, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
-
-    elapsed_time = time.time() - starting_time
-    fps = frame_id / elapsed_time
-    cv2.putText(frame, "FPS:" + str(round(fps, 2)), (10, 50), font, 2, (0, 0, 0), 1)
-
-    cv2.imshow("Image", frame)
-    key = cv2.waitKey(1)  # wait 1ms the loop will start again and we will process the next frame
-
-    if key == 27:  # esc key stops the process
-        break;
-
-cap.release()
-cv2.destroyAllWindows()
+obj = ObjectDetection()
+obj.run()
